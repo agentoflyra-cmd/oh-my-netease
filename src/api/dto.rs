@@ -122,11 +122,449 @@ pub struct UserLevelData {
     pub user_id: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserProfile {
+    pub code: i32,
+    pub nickname: String,
+    #[serde(rename = "playCount")]
+    pub play_count: i64,
+    pub playlist: Vec<UserPlaylistSummary>,
+    #[serde(rename = "starPlaylist")]
+    pub star_play_list: StarPlaylist,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StarPlaylist {
+    #[serde(rename = "coverImgUrl")]
+    pub cover_img_url: String,
+    #[serde(rename = "createTime")]
+    pub create_time: i64,
+    #[serde(rename = "playCount")]
+    pub play_count: i64,
+    #[serde(rename = "subscribedCount")]
+    pub subscribed_count: i64,
+    #[serde(rename = "trackCount")]
+    pub track_count: i64,
+    #[serde(rename = "userId")]
+    pub user_id: i64,
+}
+
+// #[derive(Debug, Serialize, Deserialize)]
+pub type UserPlaylistSummary = PlaylistDetail;
+// pub struct UserPlaylistSummary {
+//     pub id: i64,
+//     pub name: String,
+//     pub description: Option<String>,
+//     #[serde(rename = "coverImgUrl")]
+//     pub cover_img_url: String,
+//     #[serde(rename = "trackCount")]
+//     pub track_count: i64,
+//     #[serde(rename = "playCount")]
+//     pub play_count: i64,
+//     #[serde(rename = "subscribedCount")]
+//     pub subscribed_count: i64,
+//     #[serde(rename = "createTime")]
+//     pub create_time: i64,
+//     #[serde(rename = "updateTime")]
+//     pub update_time: i64,
+//     #[serde(rename = "userId")]
+//     pub user_id: i64,
+//     pub tags: Vec<String>,
+// }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserPlaylists {
+    pub code: i64,
+    pub playlist: Vec<UserPlaylistSummary>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreatePlaylistResponse {
+    pub code: i64,
+    pub id: i64,
+    pub playlist: UserPlaylistSummary,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PlaylistDetailResponse {
+    pub code: i64,
+    pub result: PlaylistDetail,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PlaylistDetail {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    #[serde(rename = "coverImgUrl")]
+    pub cover_img_url: String,
+    #[serde(rename = "createTime")]
+    pub create_time: i64,
+    #[serde(rename = "updateTime")]
+    pub update_time: i64,
+    #[serde(rename = "playCount")]
+    pub play_count: i64,
+    #[serde(rename = "trackCount")]
+    pub track_count: i64,
+    #[serde(rename = "subscribedCount")]
+    pub subscribed_count: i64,
+    #[serde(rename = "shareCount")]
+    pub share_count: Option<i64>,
+    #[serde(rename = "commentCount")]
+    pub comment_count: Option<i64>,
+    #[serde(rename = "userId")]
+    pub user_id: i64,
+    pub subscribed: Option<bool>,
+    pub creator: Option<SearchUserSummary>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub tracks: Option<Vec<SearchPlaylistTrackSummary>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserFavoriteAlbums {
+    pub code: i64,
+    pub count: i64,
+    pub data: Vec<FavoriteAlbumSummary>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[serde(rename = "paidCount")]
+    pub paid_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FavoriteAlbumSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    #[serde(rename = "transNames")]
+    pub trans_names: Vec<String>,
+    pub artists: Vec<AlbumArtistSummary>,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    pub size: i64,
+    #[serde(rename = "subTime")]
+    pub sub_time: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AlbumArtistSummary {
+    pub id: i64,
+    #[serde(rename = "img1v1Url")]
+    pub img1v1_url: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserFavoriteArtists {
+    pub code: i64,
+    pub count: i64,
+    pub data: Vec<FavoriteArtistSummary>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FavoriteArtistSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    #[serde(rename = "albumSize")]
+    pub album_size: i64,
+    #[serde(rename = "mvSize")]
+    pub mv_size: i64,
+    #[serde(rename = "img1v1Url")]
+    pub img1v1_url: String,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    pub info: String,
+    pub trans: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchSongsResponse {
+    pub code: i64,
+    pub result: SearchSongsResult,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchSongsResult {
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[serde(rename = "songCount")]
+    pub song_count: i64,
+    pub songs: Vec<SearchSongSummary>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchSongSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    pub artists: Vec<SearchArtistLite>,
+    pub album: SearchAlbumLite,
+    pub duration: i64,
+    pub fee: i64,
+    #[serde(rename = "ftype")]
+    pub ftype: i64,
+    pub status: i64,
+    #[serde(rename = "copyrightId")]
+    pub copyright_id: i64,
+    pub mark: i64,
+    pub mvid: i64,
+    pub rtype: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchArtistsResponse {
+    pub code: i64,
+    pub result: SearchArtistsResult,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchArtistsResult {
+    #[serde(rename = "artistCount")]
+    pub artist_count: i64,
+    pub artists: Vec<SearchArtistSummary>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[serde(rename = "hlWords")]
+    pub hl_words: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchArtistSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    #[serde(rename = "albumSize")]
+    pub album_size: i64,
+    #[serde(rename = "musicSize")]
+    pub music_size: i64,
+    #[serde(rename = "mvSize")]
+    pub mv_size: i64,
+    #[serde(rename = "img1v1Url")]
+    pub img1v1_url: String,
+    #[serde(rename = "picUrl")]
+    pub pic_url: Option<String>,
+    pub trans: Option<String>,
+    pub followed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAlbumsResponse {
+    pub code: i64,
+    pub result: SearchAlbumsResult,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAlbumsResult {
+    #[serde(rename = "albumCount")]
+    pub album_count: i64,
+    pub albums: Vec<SearchAlbumSummary>,
+    #[serde(rename = "hlWords")]
+    pub hl_words: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAlbumSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    pub artists: Vec<SearchArtistDetail>,
+    pub artist: SearchArtistDetail,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    #[serde(rename = "publishTime")]
+    pub publish_time: i64,
+    pub size: i64,
+    #[serde(rename = "type")]
+    pub album_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchPlaylistsResponse {
+    pub code: i64,
+    pub result: SearchPlaylistsResult,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchPlaylistsResult {
+    #[serde(rename = "playlistCount")]
+    pub playlist_count: i64,
+    pub playlists: Vec<SearchPlaylistSummary>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[serde(rename = "hlWords")]
+    pub hl_words: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchPlaylistSummary {
+    pub id: i64,
+    pub name: String,
+    pub description: String,
+    #[serde(rename = "coverImgUrl")]
+    pub cover_img_url: String,
+    #[serde(rename = "playCount")]
+    pub play_count: i64,
+    #[serde(rename = "trackCount")]
+    pub track_count: i64,
+    #[serde(rename = "bookCount")]
+    pub book_count: i64,
+    pub subscribed: bool,
+    pub creator: SearchPlaylistCreator,
+    pub track: SearchPlaylistTrackSummary,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchPlaylistCreator {
+    pub nickname: String,
+    #[serde(rename = "avatarUrl")]
+    pub avatar_url: String,
+    #[serde(rename = "userId")]
+    pub user_id: i64,
+    #[serde(rename = "userType")]
+    pub user_type: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchPlaylistTrackSummary {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    pub artists: Vec<SearchArtistDetail>,
+    pub album: SearchAlbumDetail,
+    pub duration: i64,
+    pub fee: i64,
+    #[serde(rename = "copyrightId")]
+    pub copyright_id: i64,
+    pub status: i64,
+    pub mvid: i64,
+    pub rtype: i64,
+    #[serde(rename = "ftype")]
+    pub ftype: i64,
+    pub mark: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchUsersResponse {
+    pub code: i64,
+    pub result: SearchUsersResult,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchUsersResult {
+    #[serde(rename = "userprofileCount")]
+    pub userprofile_count: i64,
+    pub userprofiles: Vec<SearchUserSummary>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[serde(rename = "hlWords")]
+    pub hl_words: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchUserSummary {
+    #[serde(rename = "userId")]
+    pub user_id: i64,
+    pub nickname: String,
+    #[serde(rename = "avatarUrl")]
+    pub avatar_url: String,
+    #[serde(default)]
+    pub signature: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub followed: bool,
+    #[serde(default)]
+    pub gender: i64,
+    #[serde(rename = "userType")]
+    pub user_type: i64,
+    #[serde(rename = "vipType")]
+    pub vip_type: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchArtistLite {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchArtistDetail {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    #[serde(rename = "img1v1Url")]
+    pub img1v1_url: String,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    pub trans: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAlbumLite {
+    pub id: i64,
+    pub name: String,
+    pub size: i64,
+    #[serde(rename = "publishTime")]
+    pub publish_time: i64,
+    #[serde(rename = "copyrightId")]
+    pub copyright_id: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAlbumDetail {
+    pub id: i64,
+    pub name: String,
+    pub artists: Vec<SearchArtistDetail>,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    #[serde(rename = "publishTime")]
+    pub publish_time: i64,
+    pub size: i64,
+    #[serde(rename = "type")]
+    pub album_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ArtistInfoResponse {
+    pub code: i64,
+    pub artist: ArtistInfo,
+    #[serde(default)]
+    pub more: bool,
+    #[serde(rename = "hotSongs")]
+    pub hot_songs: Vec<SearchPlaylistTrackSummary>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ArtistInfo {
+    pub id: i64,
+    pub name: String,
+    pub alias: Vec<String>,
+    #[serde(rename = "albumSize")]
+    pub album_size: i64,
+    #[serde(rename = "musicSize")]
+    pub music_size: i64,
+    #[serde(rename = "mvSize")]
+    pub mv_size: i64,
+    #[serde(rename = "img1v1Url")]
+    pub img1v1_url: String,
+    #[serde(rename = "picUrl")]
+    pub pic_url: String,
+    #[serde(rename = "briefDesc")]
+    pub brief_desc: String,
+    pub trans: String,
+    pub followed: bool,
+}
+
 #[cfg(test)]
 mod test {
     use crate::api::dto::get_cookies;
     use anyhow::{anyhow, Result};
 
+    #[ignore]
     #[test]
     fn test_read_db() -> Result<()> {
         let results = get_cookies()?;

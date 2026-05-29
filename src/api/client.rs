@@ -1,29 +1,16 @@
 use anyhow::{anyhow, Result};
 use reqwest::{Client, ClientBuilder, Url, header::{CONNECTION, COOKIE, HOST, HeaderValue, REFERER, USER_AGENT}};
+use serde::Serialize;
 
-use crate::api::dto::{Status, UserConfig, UserLevel, UserLevelData };
+use crate::api::{AGENT, BASE_URL, HOST_URL, dto::UserConfig, eapi, weapi};
 
-#[allow(dead_code)]
-const HOST_URL: &str = "music.163.com";
-#[allow(dead_code)]
-const BASE_URL: &str = "http://music.163.com";
-#[allow(dead_code)]
-const API_URL: &str = "http://music.163.com/api/";
-#[allow(dead_code)]
-const WE_API: &str = "http://music.163.com/weapi/";
-#[allow(dead_code)]
-const WE_API_V1: &str = "http://music.163.com/weapi/v1/";
-#[allow(dead_code)]
-const WE_API_V3: &str = "http://music.163.com/weapi/v3/";
-#[allow(dead_code)]
-const V_API: &str = "http://music.163.com/eapi/";
-#[allow(dead_code)]
-const AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0";
-
-enum Method {
+pub enum Method {
     Get,
     Post,
 }
+
+#[derive(Debug, Default, Serialize)]
+pub struct EmptyForm;
 
 pub struct NeteaseClient {
     http: Client,
@@ -54,16 +41,23 @@ impl NeteaseClient {
             .default_headers(headers)
             .build()?;
 
-        Ok(Self { http, selected_user })
+        Ok(Self { http, selected_user})
     }
 
-    async fn helper(&self, target_host: &str, input: &str, params: &[(&str, &str)], method: Method) -> Result<serde_json::Value> {
+    pub(crate) fn csrf_token(&self) -> Option<&str> {
+        self.selected_user
+            .split(';')
+            .map(str::trim)
+            .find_map(|pair| pair.strip_prefix("__csrf="))
+    }
+
+    pub(crate) async fn helper(&self, target_host: &str, input: &str, params: impl Serialize, method: Method) -> Result<serde_json::Value> {
         match method {
             Method::Get => {
                 // let netease_client = NeteaseClient::build(1)?;
                 // let http = self.http;
                 let url = Url::parse(target_host)?.join(input)?;
-                let resp = self.http.get(url).send().await?;
+                let resp = self.http.get(url).query(&params).send().await?;
                 let json_value:serde_json::Value = resp.json().await?;
                 Ok(json_value)
             }
@@ -71,44 +65,41 @@ impl NeteaseClient {
                 // let netease_client = NeteaseClient::build(1)?;
                 // let http = self.http;
                 let url = Url::parse(target_host)?.join(input)?;
-                let resp = self.http.post(url).form(params).send().await?;
+                let resp = self.http.post(url).form(&params).send().await?;
                 let json_value:serde_json::Value = resp.json().await?;
                 Ok(json_value)
             }
         }
     }
 
-   pub async fn check_cookies(&self) -> Result<()> {
-        let value = self.helper(API_URL, "push/init", &[], Method::Post).await?;
-        let status: Status = serde_json::from_value(value)?;
-        if status.code != 200 {
-            return Err(anyhow!("client: check_cookies: Cookie expired or login failed."));
-        }
-        Ok(())
+    pub(crate) async fn post_weapi(&self, target_host: &str, input: &str, params: impl Serialize) -> Result<serde_json::Value> {
+        let url = Url::parse(target_host)?.join(input)?;
+        let encrypt = weapi::encrypt_request(params)?;
+        let resp = self.http.post(url).form(&encrypt).send().await?;
+        let json_value: serde_json::Value = resp.json().await?;
+        Ok(json_value)
     }
 
-    pub async fn user_level(&self) -> Result<UserLevelData> {
-        let value = self.helper(API_URL, "user/level", &[], Method::Post).await?;
-        let user_level: UserLevel = serde_json::from_value(value)?;
-        if user_level.code != 200 {
-            return Err(anyhow!("client: user_level: get user_level failed!"));
-        }
-        Ok(user_level.data)
+    pub(crate) async fn post_eapi(&self, target_host: &str, input: &str, params: impl Serialize) -> Result<serde_json::Value> {
+        let url = Url::parse(target_host)?.join(input)?;
+        let eapi_path = format!("/api/{}", input.trim_start_matches('/'));
+        let encrypt = eapi::eapi_encrypt(eapi_path.as_bytes(), params)?;
+        let resp = self.http.post(url).form(&encrypt).send().await?;
+        let json_value: serde_json::Value = resp.json().await?;
+        Ok(json_value)
     }
 
-    // pub async fn user_profile(&self) -> Result<>
 }
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-    use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
     use reqwest::Url;
-use serde_json::json;
-    use crate::api::weapi;
-    
+    use crate::api::{
+        API_URL, V_API, client::NeteaseClient, endpoints::{artist, auto, playlist::{self, delete_playlist}, search, user}
+    };
 
-    use crate::api::client::{API_URL, NeteaseClient, WE_API};
+    #[ignore]
     #[tokio::test]
     pub async fn test_login() -> Result<()> {
         let netease_client = NeteaseClient::build(1)?;
@@ -123,43 +114,168 @@ use serde_json::json;
         
     }
 
+    #[ignore]
     #[tokio::test]
     pub async fn test_get_level() -> Result<()> {
         let netease_client = NeteaseClient::build(1)?;
-        let http = netease_client.http;
-        let url = Url::parse(API_URL)?.join("user/level")?;
-        let resp = http.post(url).body("").send().await?;
-        
-        let json_value:serde_json::Value = resp.json().await?;
-        println!("{}", serde_json::to_string_pretty(&json_value)?);
-        Err(anyhow!("show for test!"))
-        // Ok(())
+        let level = user::user_level(&netease_client).await?;
+        println!("{}", serde_json::to_string_pretty(&level)?);
+        // Err(anyhow!("show for test!"))
+        Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     pub async fn test_user_profile() -> Result<()> {
         let netease_client = NeteaseClient::build(1)?;
-        let http = &netease_client.http;
-        let url = Url::parse(WE_API)?.join("share/userprofile/info")?;
-        let user_id = netease_client.user_level().await?.user_id;
-
-        let mut params = HashMap::new();
-        params.insert("userId", user_id);
-        let encrypt = weapi::encrypt_request(json!(params))?;
-        
-        let resp = http.post(url).form(&encrypt).send().await?;
-        
-        // let status = resp.status();
-        // let text = resp.text().await?;
-        
-        // println!("status: {:?}", resp.status());
-        // println!("headers: {:?}", resp.headers());
-        // println!("body: {:?}", resp.text().await?);
-        let json_value:serde_json::Value = resp.json().await?;
-        println!("{}", serde_json::to_string_pretty(&json_value)?);
-
-        
+        let user_level = user::user_level(&netease_client).await?;
+        let user_profile = user::user_profile(&netease_client, user_level.user_id).await?;
+        println!("{}", serde_json::to_string_pretty(&user_profile)?);
         Err(anyhow!("show for test"))
+        // Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_user_playlists() -> Result<()> {
+        let netease_client = NeteaseClient::build(1)?;
+        let user_playlists = playlist::user_playlists(&netease_client, 1929567926, 0, 200).await?;
+        println!("{}", serde_json::to_string_pretty(&user_playlists)?);
+        Err(anyhow!("show for test"))
+        // Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_djradio() -> Result<()> {
+        let netease_client = NeteaseClient::build(1)?;
+        let json_value = netease_client
+            .post_eapi(V_API, "djradio/subed/v1", serde_json::json!({
+                "limit": 100,
+                "time": 0,
+                "needFee": false,
+            }))
+            .await?;
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+        Err(anyhow!("show for test"))
+        // Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_check_cookies() -> Result<()> {
+        let netease_client = NeteaseClient::build(1)?;
+        auto::check_cookies(&netease_client).await?;
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_user_favorite_albums() -> Result<()> {
+        let netease_client = NeteaseClient::build(1)?;
+        // let params = json!({
+        //     "offset": 0,
+        //     "limit": 30,
+        //     "total": true,
+        //     "csrf_token": netease_client.csrf_token().unwrap_or_default(),
+        // });
+        let json_value = playlist::user_favorite_albums(&netease_client, 0, 30).await?;
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+        Ok(())
+        // Err(anyhow!("show for test"))
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_user_favorite_artists() -> Result<()> {
+        let netease = NeteaseClient::build(1)?;
+        let json_value = playlist::user_favorite_artists(&netease, 0, 30).await?;
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+        // Err(anyhow!("show for test"))
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_search() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        let songs = search::search_songs(&client, "test", 0, 1).await?;
+        println!("{}", serde_json::to_string_pretty(&songs)?);
+        let artists = search::search_artists(&client, "test", 0, 1).await?;
+        println!("{}", serde_json::to_string_pretty(&artists)?);
+        let albums = search::search_albums(&client, "test", 0, 1).await?;
+        println!("{}", serde_json::to_string_pretty(&albums)?);
+        let users = search::search_users(&client, "test", 0, 1).await?;
+        println!("{}", serde_json::to_string_pretty(&users)?);
+        let playlists = search::search_playlists(&client, "test", 0, 1).await?;
+        println!("{}", serde_json::to_string_pretty(&playlists)?);
+        // Err(anyhow!("show for test"))
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_detail_v3() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        let detail = playlist::detail_v3(&client, 7580255366, 0, 10).await?;
+        println!("{}", serde_json::to_string_pretty(&detail)?);
+        Ok(())
+    }
+
+    #[derive(serde::Serialize)]
+    struct UpdatePlaylistNameParams<'a> {
+        id: i64,
+        name: &'a str,
+    }
+    
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_new_playlist() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        let params = UpdatePlaylistNameParams {
+            // user id
+            id: 1929567926,
+            name: "playlist for test",
+        };
+        let json_value = client.helper(API_URL, "playlist/create", params, crate::api::client::Method::Post).await?;
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+        Err(anyhow!("show for test"))
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_update_playlist_name() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        let params = UpdatePlaylistNameParams {
+            // playlist id
+            id: 17996450646,
+            name: "update playlist name for test"
+        };
+        let json_value = client.helper(API_URL, "playlist/update/name", params, crate::api::client::Method::Post).await?;
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+        Err(anyhow!("show for test"))
+    }
+
+    #[derive(serde::Serialize)]
+    struct DeletePlaylist {
+        id: i64,
+        pid: i64
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_delete_playlist() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        delete_playlist(&client, 17996450646).await
+    }
+
+    #[ignore]
+    #[tokio::test]
+    pub async fn test_artist_info() -> Result<()> {
+        let client = NeteaseClient::build(1)?;
+        let artist_info = artist::artist_info(&client, 8234).await?;
+        println!("{}", serde_json::to_string_pretty(&artist_info)?);
+        Ok(())
     }
 
 }
